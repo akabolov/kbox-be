@@ -5,6 +5,7 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -12,12 +13,16 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Express, Response } from 'express';
 import { createReadStream } from 'fs';
 import { join } from 'path';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { FileDownloadQuery } from './dto/fileDownload.dto';
 import { FilesService } from './files.service';
 
 @Controller('files')
 export class FilesController {
-  constructor(private filesService: FilesService) {}
+  constructor(
+    private filesService: FilesService,
+    private prisma: PrismaService,
+  ) {}
 
   @Get('/')
   async getFiles() {
@@ -31,17 +36,34 @@ export class FilesController {
   }
 
   @Get('download')
-  downloadFile(@Query() query: FileDownloadQuery, @Res() res: Response) {
+  async downloadFile(
+    @Query() query: FileDownloadQuery,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const { filename } = query;
 
-    const file = createReadStream(join(process.cwd(), `/uploads/${filename}`));
+    const fileStream = createReadStream(
+      join(process.cwd(), `/uploads/${filename}`),
+    );
 
-    file.on('error', () => {
+    fileStream.on('error', () => {
       const error = new NotFoundException('File is not found');
       res.status(error.getStatus()).send(error.message);
     });
 
-    //TODO: set file type https://docs.nestjs.com/techniques/streaming-files#example:~:text=the%20two%20engines.-,Example,-%23
-    file.pipe(res);
+    const file = await this.prisma.file.findUnique({
+      where: {
+        filename,
+      },
+    });
+
+    if (file) {
+      res.set({
+        'Content-Type': file.mimetype,
+        'Content-Disposition': `attachment; filename="${file.originalName}"`,
+      });
+
+      return new StreamableFile(fileStream);
+    }
   }
 }
