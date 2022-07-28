@@ -1,10 +1,35 @@
-version: '3'
 services:
-  db:
-    image: postgres:12
-    ports:
-      - 27000:5432
+  api:
+    build:
+      dockerfile: Dockerfile
+      context: .
+      # Only will build development stage from our dockerfile
+      # target: development
+      target: production
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ossset
-      POSTGRES_PASSWORD: ossset
-      POSTGRES_DB: kbox
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+    # Run a command against the development stage of the image
+    # command: npm run start:dev
+    ports:
+      - 80:3000
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - '5432:5432'
+    volumes:
+      - scatula-be:/var/lib/postgresql/data
+
+volumes:
+  scatula-be:

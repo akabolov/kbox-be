@@ -5,7 +5,11 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "prisma": {
+    "schema": "src/database/schema.prisma"
+  },
   "scripts": {
+    "prisma:generate": "npx prisma generate",
     "prebuild": "rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
